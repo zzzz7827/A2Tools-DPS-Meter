@@ -13,6 +13,27 @@ const createMeterUI = ({
   const MAX_CACHE = 32;
   const cjkRegex = /[\u3400-\u9FFF\uF900-\uFAFF]/;
   const classIconSrcByJob = new Map();
+  
+  // Multi-language job name to Korean filename mapping
+  const jobIconFilenameMap = {
+    "정령성": "정령성",
+    "Spiritmaster": "정령성",
+    "Elementalist": "정령성",
+    "궁성": "궁성",
+    "Ranger": "궁성",
+    "살성": "살성",
+    "Assassin": "살성",
+    "수호성": "수호성",
+    "Templar": "수호성",
+    "마도성": "마도성",
+    "Sorcerer": "마도성",
+    "호법성": "호법성",
+    "Chanter": "호법성",
+    "치유성": "치유성",
+    "Cleric": "치유성",
+    "검성": "검성",
+    "Gladiator": "검성",
+  };
 
   const rowViewById = new Map();
   let lastVisibleIds = new Set();
@@ -53,11 +74,18 @@ const createMeterUI = ({
     const dpsContribution = document.createElement("p");
     dpsContribution.className = "dpsContribution";
 
+    // 添加总伤害容器
+    const totalDamageContainer = document.createElement("div");
+    totalDamageContainer.className = "totalDamage";
+    const totalDamageNumber = document.createElement("p");
+
     dpsContainer.appendChild(dpsNumber);
     dpsContainer.appendChild(dpsContribution);
+    totalDamageContainer.appendChild(totalDamageNumber);
 
     contentEl.appendChild(classIconEl);
     contentEl.appendChild(nameEl);
+    contentEl.appendChild(totalDamageContainer);
     contentEl.appendChild(dpsContainer);
     rowEl.appendChild(fillEl);
     rowEl.appendChild(contentEl);
@@ -68,9 +96,11 @@ const createMeterUI = ({
       prevContribClass: "",
       nameEl,
       dpsContainer,
+      totalDamageContainer,
       classIconEl,
       classIconImg,
       dpsNumber,
+      totalDamageNumber,
       dpsContribution,
       fillEl,
       currentRow: null,
@@ -79,6 +109,7 @@ const createMeterUI = ({
       lastNameText: "",
       lastIsCjk: false,
       lastMetricText: "",
+      lastTotalDamageText: "",
       lastContributionText: "",
       lastFillRatio: -1,
       lastClassIconSrc: "",
@@ -257,7 +288,8 @@ const createMeterUI = ({
 
       if (row.job && !!row.job) {
         if (!classIconSrcByJob.has(row.job)) {
-          classIconSrcByJob.set(row.job, `./assets/${row.job}.png`);
+          const filename = jobIconFilenameMap[row.job] || row.job;
+          classIconSrcByJob.set(row.job, `./src/assets/${filename}.png`);
         }
         const src = classIconSrcByJob.get(row.job);
         if (view.lastClassIconSrc !== src) {
@@ -302,6 +334,21 @@ const createMeterUI = ({
       if (view.lastMetricText !== metricText) {
         view.dpsNumber.textContent = metricText;
         view.lastMetricText = metricText;
+      }
+
+      // 显示总伤害，使用k/m简略形式
+      const totalDamage = Number(row.totalDamage) || 0;
+      let totalDamageText;
+      if (totalDamage >= 1_000_000) {
+        totalDamageText = `${(totalDamage / 1_000_000).toFixed(2)}m`;
+      } else if (totalDamage >= 1_000) {
+        totalDamageText = `${(totalDamage / 1_000).toFixed(1)}k`;
+      } else {
+        totalDamageText = `${Math.round(totalDamage)}`;
+      }
+      if (view.lastTotalDamageText !== totalDamageText) {
+        view.totalDamageNumber.textContent = totalDamageText;
+        view.lastTotalDamageText = totalDamageText;
       }
 
       const contributionText = `${damageContribution.toFixed(1)}%`;

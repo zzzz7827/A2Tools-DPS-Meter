@@ -30,19 +30,18 @@
       <div class="meter">
         <div class="header">
           <div class="bossIcon">
-            <img src="/src/assets/logo.png" alt="Logo" />
-            <div class="bossIconOverlay" aria-hidden="true">
-              <i data-lucide="camera"></i>
-            </div>
+            <img src="/src/assets/logo.png" alt="Logo" draggable="false" />
           </div>
           <div class="bossNames">
             <span class="bossName"></span>
           </div>
 
           <div class="headerBtns">
-            <div class="headerBtn suspendBtn" style="display:none"><i data-lucide="power"></i></div>
+            <div class="headerBtn suspendBtn"><i data-lucide="pause"></i></div>
             <div class="headerBtn resetBtn"><i data-lucide="rotate-ccw"></i></div>
+            <div class="headerBtn historyBtn"><i data-lucide="history"></i></div>
             <div class="headerBtn settingsBtn"><i data-lucide="settings"></i></div>
+            <div class="headerBtn quitBtn"><i data-lucide="x"></i></div>
           </div>
         </div>
         <div class="footerBtns">
@@ -51,13 +50,6 @@
             type="button"
             aria-label="Target mode">
             TARGET
-          </button>
-          <button
-            class="footerBtn metricToggleBtn"
-            type="button"
-            data-i18n="header.display.dps"
-            aria-label="Showing DPS">
-            DPS
           </button>
           <div class="footerBtn collapseBtn">
             <i
@@ -705,13 +697,16 @@
         <div class="historyPanel" role="dialog" aria-modal="true">
           <div class="historyHeader">
             <div class="historyTitle" data-i18n="history.title">Battle History</div>
-            <button class="historyTrainToggle" type="button" title="Show Training Battles">
-              <i data-lucide="test-tube-diagonal"></i>
+            <button class="historyTrainToggle" type="button" title="Show Training Battles" data-no-drag="true">
+              <i data-lucide="test-tube-diagonal" data-no-drag="true"></i>
             </button>
-            <button class="historyDeleteToggle" type="button" title="Toggle delete mode">
-              <i data-lucide="trash-2"></i>
+            <button class="historyDeleteToggle" type="button" title="Toggle delete mode" data-no-drag="true">
+              <i data-lucide="trash-2" data-no-drag="true"></i>
             </button>
-            <div class="closeX historyClose">×</div>
+            <button class="historyClearAllBtn" type="button" title="Clear all history" data-no-drag="true">
+              <i data-lucide="trash" data-no-drag="true"></i>
+            </button>
+            <div class="closeX historyClose" data-no-drag="true">×</div>
           </div>
           <div class="historyFilters">
             <select class="historyFilterBoss historyFilterSelect" aria-label="Filter by boss"></select>
@@ -749,47 +744,49 @@
         <span class="pingText"></span>
       </div>
       <div
-        class="console"
-        style="
-          position: fixed;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          background: rgba(0, 0, 0, 0.8);
-          color: lime;
-          font-family: monospace;
-          font-size: 12px;
-          padding: 10px;
-          max-height: 200px;
-          overflow-y: auto;
-          display: none;
-        "></div>
+      class="console"
+      style="
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: rgba(0, 0, 0, 0.8);
+        color: lime;
+        font-family: monospace;
+        font-size: 12px;
+        padding: 10px;
+        max-height: 200px;
+        overflow-y: auto;
+        display: none;
+      "></div>
     </div>
-    <div
-      class="updateModal"
-      id="updateModal">
-      <div class="updateModalCard">
-        <div class="updateModalTitle" data-i18n="update.title">New update available</div>
-        <div
-          class="updateModalText"
-          id="updateModalText"></div>
-        <div class="updateModalActions" id="updateModalActions">
-          <button class="updateModalBtn updateInstallBtn" data-i18n="update.install">Install Now</button>
-          <button class="updateModalBtn updateNotesBtn" data-i18n="update.notes">Release Notes</button>
-          <button class="updateModalBtn updateManualBtn" data-i18n="update.manual">Manual Install</button>
-          <button class="updateModalBtn updateLaterBtn" data-i18n="update.later">Update Later</button>
+    <div class="quitModal" id="quitModal" aria-hidden="true">
+      <div
+        class="quitModalCard"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="quitModalTitle">
+        <button
+          class="quitModalClose"
+          type="button"
+          aria-label="Close">
+          ×
+        </button>
+        <div class="quitModalTitle" id="quitModalTitle">
+          确定要退出程序吗？
         </div>
-        <div class="updateProgress" id="updateProgress" style="display:none">
-          <div class="updateProgressTrack">
-            <div class="updateProgressBar" id="updateProgressBar"></div>
-          </div>
-          <div class="updateProgressText" id="updateProgressText">0%</div>
-          <div class="updateProgressActions">
-            <button class="updateModalBtn updateNotesBtn updateProgressNotesBtn" data-i18n="update.notes">Release Notes</button>
-            <button class="updateModalBtn updateCancelBtn" data-i18n="update.cancel">Cancel</button>
-          </div>
+        <div class="quitActions">
+          <button
+            class="quitIconButton quitCancelButton"
+            type="button">
+            <span class="quitLabel">取消</span>
+          </button>
+          <button
+            class="quitIconButton quitConfirmButton"
+            type="button">
+            <span class="quitLabel">退出</span>
+          </button>
         </div>
-        <div class="updateStatusText" id="updateStatusText" style="display:none"></div>
       </div>
     </div>
     <div class="supportModal" id="supportModal" aria-hidden="true">
@@ -817,8 +814,7 @@
         <div class="supportActions">
           <button
             class="supportIconButton supportPrimaryButton"
-            type="button"
-            data-support="afdian"
+            type="button" data-support="afdian"
             data-url="https://afdian.com/a/hiddencube"
             data-i18n-aria-label="support.aria.afdian"
             aria-label="Afdian">
@@ -827,8 +823,7 @@
           </button>
           <button
             class="supportIconButton"
-            type="button"
-            data-support="wechat"
+            type="button" data-support="wechat"
             data-qr="wechat"
             data-i18n-aria-label="support.aria.wechat"
             aria-label="WeChat">
@@ -837,8 +832,7 @@
           </button>
           <button
             class="supportIconButton"
-            type="button"
-            data-support="paypal"
+            type="button" data-support="paypal"
             data-url="https://www.paypal.me/taengoo"
             data-i18n-aria-label="support.aria.paypal"
             aria-label="PayPal">
@@ -847,8 +841,7 @@
           </button>
           <button
             class="supportIconButton"
-            type="button"
-            data-support="btc"
+            type="button" data-support="btc"
             data-copy="1GexKhgVZPYRqpfCKydXLoNUXRRRUoAUwT"
             data-i18n-aria-label="support.aria.btc"
             aria-label="BTC">
@@ -857,8 +850,7 @@
           </button>
           <button
             class="supportIconButton"
-            type="button"
-            data-support="eth"
+            type="button" data-support="eth"
             data-copy="0x38F0bc371A563A24eCa6034cFf77eB6173c7e3e7"
             data-i18n-aria-label="support.aria.eth"
             aria-label="ETH">
@@ -867,8 +859,7 @@
           </button>
           <button
             class="supportIconButton"
-            type="button"
-            data-support="usdc"
+            type="button" data-support="usdc"
             data-copy="0xA9571Fc95666350f6DFFB8Fb80ee27eE7db46b56"
             data-i18n-aria-label="support.aria.usdc"
             aria-label="USDC">
@@ -885,9 +876,6 @@
     <script src="/src/js/skillIcons.js"></script>
     <script src="/src/js/details.js"></script>
     <script src="/src/js/history.js"></script>
-
-    <!-- 추가 -->
-    <script src="/src/js/checkRelease.js?v=202b6"></script>
 
     <script src="/src/js/i18n.js"></script>
     <script src="/src/js/core.js"></script>

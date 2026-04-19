@@ -2107,7 +2107,11 @@ const createDetailsUI = ({
     const isSameCompactMode = activeCompactMode === requestedCompact;
     const isAlreadyPinnedForRow = pinnedRowId === rowId;
 
-    if (!force && isSame && isSameCompactMode && (!requestedPin || isAlreadyPinnedForRow)) return;
+    if (!force && isSame && isSameCompactMode && (!requestedPin || isAlreadyPinnedForRow)) {
+      // 如果点击的是同一个已经打开的行，就关闭详情面板
+      close();
+      return;
+    }
 
     if (isSwitch && restartOnSwitch) {
       close();

@@ -205,10 +205,17 @@ class DpsApp {
 
     this.resetBtn = document.querySelector(".resetBtn");
     this.suspendBtn = document.querySelector(".suspendBtn");
+    this.historyBtn = document.querySelector(".historyBtn");
+    this.quitBtn = document.querySelector(".quitBtn");
     this.headerBtns = document.querySelector(".headerBtns");
+    console.log("[Init] Header buttons initialized:", {
+      resetBtn: this.resetBtn,
+      suspendBtn: this.suspendBtn,
+      historyBtn: this.historyBtn,
+      quitBtn: this.quitBtn
+    });
     this.targetModeBtn = document.querySelector(".footerBtns .targetModeBtn");
     this.collapseBtn = document.querySelector(".collapseBtn");
-    this.metricToggleBtn = document.querySelector(".metricToggleBtn");
 
     this.bindHeaderButtons();
     this.bindDragToMoveWindow();
@@ -330,7 +337,7 @@ class DpsApp {
         const nextId = Number(rowId);
         this.pinnedDetailsRowId = Number.isFinite(nextId) && nextId > 0 ? nextId : null;
       },
-      onBack: () => { this.historyUI?.open?.(); },
+      onBack: async () => { await this.historyUI?.open?.(); },
     });
     if (this.detailsScreenshotBtn) {
       let screenshotNoteTimer = null;
@@ -844,6 +851,10 @@ class DpsApp {
     this.applyLocalPlayerIdUpdate(localPlayerId, "backend local id update");
     this.updateLocalPlayerIdentity(rows);
     this._lastBattleTimeMs = battleTimeMs;
+    
+    // 检查targetId是否变化
+    const targetIdChanged = targetId !== this.lastTargetId;
+    
     this.lastTargetMode = targetMode;
     this.lastTargetName = targetName;
     this.lastTargetId = targetId;
@@ -866,6 +877,23 @@ class DpsApp {
       this._lastLoggedTargetId = targetId;
       this._lastLoggedTargetMode = targetMode;
       this._lastLoggedTargetName = targetName;
+    }
+    
+    // 当targetId变化时，重置战斗数据
+    if (targetIdChanged && targetId > 0) {
+      console.log("[Target ID Changed]", `Resetting battle data for new target: ${targetId}`);
+      // 重置前端状态但不调用后端resetDps，避免频繁重置
+      this.lastSnapshot = null;
+      this._lastRenderedListSignature = "";
+      this._lastRenderedTargetLabel = "";
+      this._lastRenderedRowsSummary = null;
+      this.pinnedDetailsRowId = null;
+      this.hoveredDetailsRowId = null;
+      this.setWindowDragFreeze(false);
+      this.setMeterHoverFreeze(false);
+      this.detailsUI?.close?.({ keepPinned: false });
+      this.meterUI?.onResetMeterUi?.();
+      this.renderCurrentRows();
     }
 
 
@@ -1596,7 +1624,9 @@ class DpsApp {
   }
 
   bindHeaderButtons() {
-    this.logoBtn = document.querySelector(".bossIcon");
+    console.log("[Bind Header Buttons] Starting...");
+    console.log("[Bind Header Buttons] this.historyBtn:", this.historyBtn);
+    
     this.collapseBtn?.addEventListener("click", () => {
       this.listSortDirection = this.listSortDirection === "asc" ? "desc" : "asc";
       this.renderCurrentRows();
@@ -1612,11 +1642,30 @@ class DpsApp {
       iconEl.setAttribute("data-lucide", iconName);
       window.lucide?.createIcons?.({ root: this.collapseBtn });
     });
-    this.resetBtn?.addEventListener("click", () => {
+    this.resetBtn?.addEventListener("click", (e) => {
+      e.stopPropagation();
       this.refreshDamageData({ reason: "manual refresh" });
     });
-    this.suspendBtn?.addEventListener("click", () => {
+    this.suspendBtn?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      console.log("[Suspend Button] Clicked, current state:", this._captureSuspended);
       this._setCaptureSuspended(!this._captureSuspended);
+    });
+    this.historyBtn?.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      console.log("[History Button] Clicked, historyUI:", this.historyUI);
+      if (this.historyUI) {
+        console.log("[History Button] Opening history panel...");
+        await this.historyUI.open();
+      } else {
+        console.error("[History Button] historyUI is not initialized!");
+      }
+    });
+    this.quitBtn?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      console.log("[Quit Button] Clicked");
+      // Use same method as settings page
+      window.javaBridge?.exitApp?.();
     });
     this.targetModeBtn?.addEventListener("click", () => {
       const modes = ["lastHitByMe", "bossTargets", "trainTargets", "allTargets"];
@@ -1635,37 +1684,6 @@ class DpsApp {
         this.fetchDps();
       }
     });
-    this.metricToggleBtn?.addEventListener("click", () => {
-      const nextMode = this.displayMode === "totalDamage" ? "dps" : "totalDamage";
-      this.setDisplayMode(nextMode, { persist: true });
-      this.renderCurrentRows();
-    });
-    this.logoBtn?.addEventListener("click", () => {
-      this.captureMainMeterScreenshot();
-    });
-    this.logoBtn?.setAttribute("data-no-drag", "true");
-
-    // Click on boss name area → open Details for current mob (all players) or history
-    const bossNamesEl = document.querySelector(".bossNames");
-    if (bossNamesEl) {
-      bossNamesEl.addEventListener("click", () => {
-        if (this.isWindowDragging) return;
-        const targetId = this.lastTargetId;
-        if (targetId > 0) {
-          this.pinnedDetailsRowId = null;
-          this.detailsUI?.open?.(null, {
-            defaultTargetId: targetId,
-            defaultTargetAll: false,
-            pin: true,
-            force: true,
-          });
-        } else {
-          this.historyUI?.open?.();
-        }
-      });
-      bossNamesEl.setAttribute("data-no-drag", "true");
-      bossNamesEl.style.cursor = "pointer";
-    }
   }
 
   setupSettingsPanel() {
@@ -1987,7 +2005,8 @@ class DpsApp {
 
     this.initializeSettingsDropdowns();
 
-    this.settingsBtn?.addEventListener("click", () => {
+    this.settingsBtn?.addEventListener("click", (e) => {
+      e.stopPropagation();
       this.toggleSettingsPanel();
     });
 
@@ -3670,124 +3689,9 @@ class DpsApp {
   }
 
   bindDragToMoveWindow() {
-    let isDragging = false;
-    let startX = 0;
-    let startY = 0;
-    let initialStageX = 0;
-    let initialStageY = 0;
-    let pendingStageX = 0;
-    let pendingStageY = 0;
-    let lastMovedX = Number.NaN;
-    let lastMovedY = Number.NaN;
-    let dragRafId = null;
-    let hasDragMoved = false;
-
-    const flushMove = (force = false) => {
-      dragRafId = null;
-      if ((!isDragging && !force) || !window.javaBridge) return;
-      const deltaSinceLastX = Math.abs(pendingStageX - lastMovedX);
-      const deltaSinceLastY = Math.abs(pendingStageY - lastMovedY);
-      if (!force && Number.isFinite(deltaSinceLastX) && Number.isFinite(deltaSinceLastY)) {
-        if (deltaSinceLastX < 2 && deltaSinceLastY < 2) return;
-      }
-      if (pendingStageX === lastMovedX && pendingStageY === lastMovedY) return;
-      window.javaBridge.moveWindow(pendingStageX, pendingStageY);
-      lastMovedX = pendingStageX;
-      lastMovedY = pendingStageY;
-    };
-
-    document.addEventListener("mousedown", (e) => {
-      if (e.button !== 0) return;
-      const targetEl = e.target?.nodeType === Node.TEXT_NODE ? e.target.parentElement : e.target;
-      if (targetEl?.closest?.(".resizeHandle")) {
-        return;
-      }
-      if (targetEl?.closest?.(".headerBtn, .footerBtn, .bossIcon")) {
-        return;
-      }
-      if (targetEl?.closest?.(".settingsPanel, .historyPanel, .detailsBody, .detailsSettingsMenu")) {
-        return;
-      }
-      if (targetEl?.closest?.("button, input, select, textarea, a, [data-no-drag]")) {
-        return;
-      }
-      isDragging = true;
-      hasDragMoved = false;
-      this.isWindowDragging = true;
-      this.deferFetchUntilDragEnd = true;
-      // Don't freeze pointer events yet — defer until the 3px drag threshold
-      // is crossed so that simple clicks on meter bars still fire normally.
-      startX = e.screenX;
-      startY = e.screenY;
-      initialStageX = window.screenX;
-      initialStageY = window.screenY;
-      pendingStageX = initialStageX;
-      pendingStageY = initialStageY;
-      lastMovedX = Number.NaN;
-      lastMovedY = Number.NaN;
-    });
-
-    document.addEventListener("mousemove", (e) => {
-      if (!isDragging || !window.javaBridge) return;
-
-      const deltaX = e.screenX - startX;
-      const deltaY = e.screenY - startY;
-      if (!hasDragMoved && (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3)) {
-        hasDragMoved = true;
-        this.setWindowDragFreeze(true);
-        this.elList?.classList?.add?.("dragInteracting");
-        // Hide heavy panels during drag to reduce per-frame repaint cost;
-        // place a lightweight ghost outline so the user sees where they are.
-        for (const sel of [".settingsPanel", ".detailsPanel", ".historyPanel"]) {
-          const el = document.querySelector(sel);
-          if (el && el.offsetParent !== null) {
-            const r = el.getBoundingClientRect();
-            const ghost = document.createElement("div");
-            ghost.style.cssText = `position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;`
-              + "background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.12);border-radius:8px;pointer-events:none;z-index:9999;";
-            document.body.appendChild(ghost);
-            el.style.visibility = "hidden";
-            el._dragHidden = true;
-            el._dragGhost = ghost;
-          }
-        }
-      }
-      pendingStageX = initialStageX + deltaX;
-      pendingStageY = initialStageY + deltaY;
-
-      if (dragRafId !== null) return;
-      dragRafId = requestAnimationFrame(flushMove);
-    });
-
-    document.addEventListener("mouseup", () => {
-      if (!isDragging) return;
-      isDragging = false;
-      this.isWindowDragging = false;
-      this.setWindowDragFreeze(false);
-      if (hasDragMoved) {
-        this.elList?.classList?.remove?.("dragInteracting");
-        this.suppressRowInteractionUntilMs = this.nowMs() + 120;
-        // Restore panels hidden during drag
-        for (const sel of [".settingsPanel", ".detailsPanel", ".historyPanel"]) {
-          const el = document.querySelector(sel);
-          if (el?._dragHidden) {
-              el.style.visibility = "";
-              el._dragGhost?.remove();
-              delete el._dragHidden;
-              delete el._dragGhost;
-            }
-        }
-      }
-      if (dragRafId !== null) {
-        cancelAnimationFrame(dragRafId);
-        dragRafId = null;
-      }
-      flushMove(true);
-      if (this.deferFetchUntilDragEnd) {
-        this.deferFetchUntilDragEnd = false;
-        this.fetchDps();
-      }
-    });
+    // 拖动功能由 tauriBridge.js 中的原生系统处理
+    // 这个函数仅保留用于设置相关的标志位
+    // 不再添加任何事件监听器，防止冲突
   }
 
   bindResizeHandle() {
@@ -3849,6 +3753,7 @@ class DpsApp {
 
   _setCaptureSuspended(suspended) {
     this._captureSuspended = !!suspended;
+    console.log("[Suspend Capture] Setting to:", this._captureSuspended);
     window.javaBridge?.suspendCapture?.(this._captureSuspended);
     this._updateSuspendBtnIcon();
     this._updateSuspendStatusMessage();
@@ -3858,7 +3763,7 @@ class DpsApp {
     if (!this.suspendBtn) return;
     const iconEl = this.suspendBtn.querySelector("i, svg");
     if (!iconEl) return;
-    const iconName = this._captureSuspended ? "power-off" : "power";
+    const iconName = this._captureSuspended ? "play" : "pause";
     this.suspendBtn.classList.toggle("isSuspended", !!this._captureSuspended);
     if (iconEl.tagName === "I") {
       iconEl.setAttribute("data-lucide", iconName);

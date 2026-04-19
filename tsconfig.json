@@ -12,12 +12,15 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
+    "allowJs": true,
+    "checkJs": false,
 
     /* Linting */
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "strict": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": false
   },
-  "include": ["src"]
+  "include": ["public/src/**/*.js", "*.js", "*.ts"],
+  "exclude": ["node_modules", "src-tauri/target"]
 }

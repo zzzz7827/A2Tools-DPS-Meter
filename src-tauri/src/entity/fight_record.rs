@@ -15,11 +15,13 @@ pub struct FightRecord {
     pub duration_ms: i64,
     pub total_damage: i32,
     /// Job class prefix IDs (e.g. [11, 14, 17]) for language-independent storage.
+    #[serde(default)]
     pub jobs: Vec<String>,
     /// Job class prefix IDs for i18n resolution (new field).
     #[serde(default)]
     pub job_ids: Vec<i32>,
     pub details: TargetDetailsResponse,
+    #[serde(default)]
     pub actors: Vec<DetailsActorSummary>,
     #[serde(default)]
     pub is_train: bool,

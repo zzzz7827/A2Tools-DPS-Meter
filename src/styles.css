@@ -406,36 +406,19 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
   align-content: center;
   gap: 8px;
   padding: 8px 12px;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
   .bossIcon {
     display: flex;
     align-items: center;
     width: 88px;
-    position: relative;
+    cursor: default;
     img {
       -webkit-user-drag: none;
-
+      user-select: none;
       width: 100%;
     }
-  }
-  .bossIconOverlay {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    background: rgba(0, 0, 0, 0.35);
-    color: #ffffff;
-    transition: opacity 150ms ease;
-    pointer-events: none;
-    border-radius: 8px;
-  }
-  .bossIconOverlay svg {
-    width: 22px;
-    height: 22px;
-  }
-  .bossIcon:hover .bossIconOverlay {
-    opacity: 1;
   }
 
   .bossNames {
@@ -456,12 +439,15 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
     color: white;
     gap: 8px;
     text-shadow: var(--text-shadow);
-    cursor: pointer;
+    cursor: default;
+    pointer-events: auto;
     .headerBtn {
       display: flex;
       align-items: center;
       width: 20px;
       height: 20px;
+      cursor: pointer;
+      pointer-events: auto;
     }
     /* When suspend button is visible, shrink all header buttons */
     &.hasSuspendBtn .headerBtn {
@@ -968,6 +954,13 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
       align-items: center;
       gap: 8px;
     }
+    .totalDamage {
+      color: var(--dps-text);
+      text-shadow: var(--dps-shadow, var(--text-shadow));
+      font-weight: 400;
+      opacity: 0.8;
+      font-size: 16px;
+    }
   }
 }
 .meter .item.isIdentifying .content .name {
@@ -1404,6 +1397,29 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   &.active {
     color: #e06b6b;
     background: rgba(224, 107, 107, 0.12);
+  }
+}
+
+.historyClearAllBtn {
+  background: none;
+  border: none;
+  color: rgba(255, 100, 100, 0.55);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: background 0.12s, color 0.12s, transform 0.12s;
+
+  &:hover {
+    color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.18);
+    transform: scale(1.05);
+  }
+
+  &:active {
+    transform: scale(0.98);
   }
 }
 
@@ -1989,14 +2005,41 @@ body.mainPlayerDpsBold .meter .item .content .dps {
 }
 
 /* Compatibility: flatten nested rules for environments without CSS nesting support. */
+.header {
+  display: flex;
+  align-items: center;
+  align-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
 .header .bossIcon {
   display: flex;
   align-items: center;
   width: 88px;
+  position: relative;
+  cursor: default;
 }
 .header .bossIcon img {
   -webkit-user-drag: none;
+  user-select: none;
+  pointer-events: none;
   width: 100%;
+}
+.header .bossIconOverlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  background: rgba(0, 0, 0, 0.35);
+  color: #ffffff;
+  transition: opacity 150ms ease;
+  pointer-events: none;
+  border-radius: 8px;
 }
 .header .bossNames {
   flex: 1;
@@ -2624,6 +2667,14 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   display: flex;
   align-items: center;
   gap: 8px;
+}
+.list .item .totalDamage {
+  color: var(--dps-text);
+  font-size: var(--font);
+  text-shadow: var(--dps-shadow, var(--text-shadow));
+  font-weight: 400;
+  opacity: 0.8;
+  font-size: 16px;
 }
 
 .battleTime.isVisible {
@@ -3833,6 +3884,90 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
 .hoverDetailsTooltip.isVisible {
   opacity: 1;
   transform: translateY(0);
+}
+
+.quitModal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 9;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.quitModal.isOpen {
+  display: flex;
+}
+.quitModal .quitModalCard {
+  width: min(320px, 95vw);
+  border-radius: 18px;
+  background: rgb(12, 22, 40);
+  padding: 24px 20px;
+  color: white;
+  position: relative;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+.quitModal .quitModalTitle {
+  font-size: 17px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.4;
+}
+.quitModal .quitModalClose {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
+  border-radius: 999px;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+.quitModal .quitActions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  width: 100%;
+}
+.quitModal .quitIconButton {
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  border-radius: 10px;
+  padding: 12px 16px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+}
+.quitModal .quitIconButton:hover {
+  background: rgba(255, 255, 255, 0.16);
+  transform: translateY(-1px);
+}
+.quitModal .quitIconButton:active {
+  transform: translateY(0);
+}
+.quitModal .quitConfirmButton {
+  background: #ef4444;
+  color: white;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+.quitModal .quitConfirmButton:hover {
+  background: #dc2626;
+  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
 }
 
 .hoverDetailsTooltipHeader {

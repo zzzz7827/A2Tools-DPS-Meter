@@ -28,8 +28,8 @@
     }
   },
   "bundle": {
-    "active": true,
-    "targets": ["msi"],
+    "active": false,
+    "targets": [],
     "resources": [
       "../src/data"
     ],

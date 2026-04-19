@@ -47,6 +47,7 @@ impl CaptureDispatcher {
         npc_lookup: Arc<NpcLookup>,
         port_detector: Arc<CombatPortDetector>,
         ping_tracker: Arc<PingTracker>,
+        suspended: Arc<AtomicBool>,
     ) -> Self {
         Self {
             data_storage,
@@ -55,16 +56,12 @@ impl CaptureDispatcher {
             port_detector,
             ping_tracker,
             dot_skill_ids: std::collections::HashSet::new(),
-            suspended: Arc::new(AtomicBool::new(false)),
+            suspended,
         }
     }
 
     pub fn set_dot_skill_ids(&mut self, ids: std::collections::HashSet<i32>) {
         self.dot_skill_ids = ids;
-    }
-
-    pub fn set_suspended(&self, suspended: bool) {
-        self.suspended.store(suspended, Ordering::SeqCst);
     }
 
     /// Run the dispatch loop, consuming packets from the channel.

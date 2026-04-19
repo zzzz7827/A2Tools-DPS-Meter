@@ -9,6 +9,7 @@ pub mod platform;
 
 use std::collections::HashSet;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use parking_lot::Mutex;
@@ -41,6 +42,7 @@ pub struct AppState {
     pub npc_lookup: Arc<NpcLookup>,
     pub app_data_dir: std::path::PathBuf,
     pub i18n_data_dir: Option<std::path::PathBuf>,
+    pub capture_suspended: Arc<AtomicBool>,
 }
 
 // ===== TAURI COMMANDS =====
@@ -248,6 +250,16 @@ fn set_manual_device(state: tauri::State<'_, AppState>, device: String) {
 #[tauri::command]
 fn quit_app(app: tauri::AppHandle) {
     app.exit(0);
+}
+
+#[tauri::command]
+fn is_capture_suspended(state: tauri::State<'_, AppState>) -> bool {
+    state.capture_suspended.load(Ordering::SeqCst)
+}
+
+#[tauri::command]
+fn set_capture_suspended(state: tauri::State<'_, AppState>, suspended: bool) {
+    state.capture_suspended.store(suspended, Ordering::SeqCst);
 }
 
 #[tauri::command]
@@ -751,6 +763,8 @@ pub fn run() {
                 logging::logger::set_packet_log_enabled(true, &app_data_dir);
             }
 
+            let capture_suspended = Arc::new(AtomicBool::new(false));
+
             let state = AppState {
                 data_storage: data_storage.clone(),
                 dps_calculator: Mutex::new(dps_calculator),
@@ -762,6 +776,7 @@ pub fn run() {
                 npc_lookup: npc_lookup.clone(),
                 app_data_dir: app_data_dir.clone(),
                 i18n_data_dir: found_data_dir.clone(),
+                capture_suspended: capture_suspended.clone(),
             };
 
             app.manage(state);
@@ -807,6 +822,7 @@ pub fn run() {
                 npc_lookup.clone(),
                 port_detector.clone(),
                 ping_tracker.clone(),
+                capture_suspended.clone(),
             );
             dispatcher.set_dot_skill_ids(dot_ids);
 
@@ -1016,6 +1032,8 @@ pub fn run() {
             get_aion2_window_title,
             debug_status,
             quit_app,
+            is_capture_suspended,
+            set_capture_suspended,
             open_url,
             read_cached_icon,
             write_cached_icon,

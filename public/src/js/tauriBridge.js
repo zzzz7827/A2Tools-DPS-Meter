@@ -18,10 +18,16 @@
   let cachedCaptureStatus = null;
   let cachedDetailsContext = null;
   let cachedAppVersion = "";     // populated on startup from Tauri backend
+  let cachedCaptureSuspended = false;
 
   // Fetch app version from backend (sourced from Cargo.toml via env!("CARGO_PKG_VERSION"))
   invoke("get_app_version").then((v) => {
     if (typeof v === "string") cachedAppVersion = v;
+  }).catch(() => {});
+
+  // Load capture suspended state from backend
+  invoke("is_capture_suspended").then((s) => {
+    if (typeof s === "boolean") cachedCaptureSuspended = s;
   }).catch(() => {});
 
   // Load settings from Rust backend and merge with localStorage.
@@ -322,8 +328,17 @@
     // --- Feature flags ---
     isRunningFromIde() { return false; },
     getParsingBacklog() { return 0; },
-    isCaptureSuspended() { return false; },
-    suspendCapture() {},
+    isCaptureSuspended() {
+        return cachedCaptureSuspended;
+    },
+    suspendCapture(suspended) {
+        cachedCaptureSuspended = !!suspended;
+        try {
+            invoke('set_capture_suspended', { suspended }).catch(() => {});
+        } catch (e) {
+            console.error('Failed to set capture suspended:', e);
+        }
+    },
     setBossLogsEnabled() {},
     setAutoHideMeter(enabled) {
       invoke("update_settings", { key: "dpsMeter.autoHideMeter", value: String(enabled) }).catch(() => {});
@@ -337,14 +352,19 @@
     getAion2WindowTitle() { return window._cachedAion2Title ?? null; },
     logDebug() {},
 
-    getFightHistory() {
-      // Trigger async refresh for next call
-      invoke("get_fight_history").then((h) => { window._cachedFightHistory = h; }).catch(() => {});
-      if (window._cachedFightHistory) {
-        return JSON.stringify(window._cachedFightHistory);
+    async getFightHistory() {
+      try {
+        // Always get fresh data directly from invoke
+        const h = await invoke("get_fight_history");
+        window._cachedFightHistory = h;
+        return JSON.stringify(h);
+      } catch (e) {
+        // Fallback to cache if available
+        if (window._cachedFightHistory) {
+          return JSON.stringify(window._cachedFightHistory);
+        }
+        return "[]";
       }
-      // First call: block briefly with synchronous fallback
-      return "[]";
     },
 
     getFightDetails(id) {
@@ -354,7 +374,6 @@
 
     deleteFight(id) {
       invoke("delete_fight", { id }).catch(() => {});
-      return true;
     },
 
     // --- Resources ---
@@ -508,10 +527,14 @@
     if (e.button !== 0) return;
     const target = e.target?.nodeType === Node.TEXT_NODE ? e.target.parentElement : e.target;
     // Let interactive elements handle their own clicks normally
-    if (target?.closest?.("button, input, select, textarea, a, [data-no-drag]")) return;
-    if (target?.closest?.(".headerBtn, .footerBtn, .bossIcon, .resizeHandle")) return;
+    if (target?.closest?.("button, input, select, textarea, a, [data-no-drag]")) {
+      return;
+    }
+    if (target?.closest?.(".headerBtn, .footerBtn, .resizeHandle")) {
+      return;
+    }
     // Let panel internals work (close buttons, dropdowns, etc.)
-    if (target?.closest?.(".settingsPanel, .historyPanel, .detailsBody, .detailsHeader, .detailsSettingsMenu")) return;
+    if (target?.closest?.(".settingsPanel, .historyPanel, .historyRowActions, .detailsBody, .detailsHeader, .detailsSettingsMenu")) return;
     // Let meter bar item clicks pass through for details/hover
     if (target?.closest?.(".item")) return;
     // Everything else in .meter: native drag
@@ -521,13 +544,8 @@
     }
   }, { capture: true });
 
-  // Pre-fetch device list and fight history so they're ready when panels open
+  // Pre-fetch device list so it's ready when panels open
   invoke("get_available_devices").then((d) => { window._cachedDevices = d; }).catch(() => {});
-  invoke("get_fight_history").then((h) => { window._cachedFightHistory = h; }).catch(() => {});
-  // Refresh fight history periodically (picks up auto-saved fights)
-  setInterval(() => {
-    invoke("get_fight_history").then((h) => { window._cachedFightHistory = h; }).catch(() => {});
-  }, 10000);
 
   // ===== Resize handle: expand viewport while dragging =====
   let resizeActive = false;
@@ -551,11 +569,8 @@
 
   // Startup diagnostics
   invoke("debug_status").then((s) => {
-    console.log("[A2Tools] Debug status:", JSON.stringify(s));
     if (!s.isAdmin) {
-      console.warn("[A2Tools] NOT RUNNING AS ADMIN — packet capture will not work!");
+      // 静默检查管理员状态
     }
-  }).catch((e) => console.error("[A2Tools] debug_status failed:", e));
-
-  console.log("[A2Tools] Tauri bridge adapter loaded (javaBridge + dpsData)");
+  }).catch(() => {});
 })();

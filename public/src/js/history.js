@@ -7,6 +7,7 @@ const createHistoryUI = ({ onOpenFight } = {}) => {
   const emptyEl = panel.querySelector(".historyEmpty");
   const trainToggleBtn = panel.querySelector(".historyTrainToggle");
   const deleteToggleBtn = panel.querySelector(".historyDeleteToggle");
+  const clearAllBtn = panel.querySelector(".historyClearAllBtn");
   const filterBossEl = panel.querySelector(".historyFilterBoss");
   const filterPlayerEl = panel.querySelector(".historyFilterPlayer");
   const filterPlayerTrigger = filterPlayerEl?.querySelector(".historyClassDropdownTrigger");
@@ -259,16 +260,8 @@ const createHistoryUI = ({ onOpenFight } = {}) => {
       deleteBtn.className = "historyDeleteBtn";
       deleteBtn.type = "button";
       deleteBtn.setAttribute("aria-label", t("history.delete", "Delete"));
+      deleteBtn.setAttribute("data-fight-id", fight.id);
       deleteBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
-      deleteBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (window.javaBridge?.deleteFight?.(fight.id)) {
-          row.remove();
-          if (!listEl.querySelector(".historyRow")) {
-            if (emptyEl) emptyEl.style.display = "";
-          }
-        }
-      });
       actionsEl.appendChild(deleteBtn);
     }
 
@@ -276,7 +269,22 @@ const createHistoryUI = ({ onOpenFight } = {}) => {
     row.appendChild(iconsEl);
     row.appendChild(actionsEl);
 
-    row.addEventListener("click", async () => {
+    row.addEventListener("click", async (e) => {
+      // 检查点击是否是删除按钮或其子元素
+      const deleteBtn = e.target.closest(".historyDeleteBtn");
+      if (deleteBtn) {
+        const fightId = deleteBtn.getAttribute("data-fight-id");
+        if (fightId) {
+          window.javaBridge?.deleteFight?.(fightId);
+          // 从内存数组中移除该记录并刷新列表
+          allFights = allFights.filter(f => f.id !== fightId);
+          populateDropdowns(allFights);
+          renderList(allFights);
+        }
+        return;
+      }
+      
+      // 否则，打开战斗详情
       const rawRecord = await window.javaBridge?.getFightDetails?.(fight.id);
       if (!rawRecord) return;
       let record;
@@ -318,13 +326,13 @@ const createHistoryUI = ({ onOpenFight } = {}) => {
     appendPage();
   };
 
-  const open = () => {
+  const open = async () => {
     panel.classList.add("open");
     syncTrainToggle();
-    const raw = window.javaBridge?.getFightHistory?.();
     try {
+      const raw = await window.javaBridge?.getFightHistory?.();
       allFights = typeof raw === "string" ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []);
-    } catch {
+    } catch (e) {
       allFights = [];
     }
     populateDropdowns(allFights);
@@ -366,9 +374,27 @@ const createHistoryUI = ({ onOpenFight } = {}) => {
     renderList(allFights);
   });
 
+  // 切换删除模式
   deleteToggleBtn?.addEventListener("click", () => {
     showDeleteMode = !showDeleteMode;
     syncDeleteToggle();
+    renderList(allFights);
+  });
+
+  // 清空所有历史记录
+  clearAllBtn?.addEventListener("click", async () => {
+    if (confirm(t('history.clear_all_confirm', '确定要清空所有历史记录吗？'))) {
+      // 删除所有记录
+      allFights.forEach((fight) => {
+        if (!fight.isLive) {
+          window.javaBridge?.deleteFight?.(fight.id);
+        }
+      });
+      // 刷新列表
+      allFights = [];
+      populateDropdowns(allFights);
+      renderList(allFights);
+    }
   });
 
   const close = () => {

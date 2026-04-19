@@ -65,6 +65,7 @@ pub struct DpsCalculator {
     all_targets_window_ms: i64,
     nickname_job_cache: HashMap<String, String>,
     saved_boss_targets: HashSet<i32>,
+    last_valid_boss_target: i32, // 记住上一个有效的 Boss 目标
 }
 
 impl DpsCalculator {
@@ -87,6 +88,7 @@ impl DpsCalculator {
             all_targets_window_ms: 120_000,
             nickname_job_cache: HashMap::new(),
             saved_boss_targets: HashSet::new(),
+            last_valid_boss_target: 0,
         }
     }
 
@@ -110,6 +112,7 @@ impl DpsCalculator {
         self.last_dps_snapshot = None;
         self.saved_boss_targets.clear();
         self.last_damage_gen = -1;
+        self.last_valid_boss_target = 0; // 重置上一个有效的 Boss 目标
         if clear_damage {
             self.data_storage.flush();
         }
@@ -323,7 +326,7 @@ impl DpsCalculator {
                 let boss_targets: Vec<_> = combat_data.keys()
                     .filter(|&&tid| {
                         if let Some(&mob_code) = mob_data.get(&tid) {
-                            self.npc_lookup.is_boss(mob_code)
+                            self.npc_lookup.is_boss(mob_code) && !TRAIN_MOB_CODES.contains(&mob_code)
                         } else {
                             false
                         }
@@ -334,19 +337,17 @@ impl DpsCalculator {
                 if let Some(&best) = boss_targets.iter()
                     .max_by_key(|&&tid| combat_data.get(&tid).map(|td| td.last_damage_time).unwrap_or(0))
                 {
+                    // 找到新的有效 Boss 目标，更新记忆
+                    self.last_valid_boss_target = best;
                     let name = self.resolve_target_name(best);
                     (HashSet::from([best]), name, best)
+                } else if self.last_valid_boss_target != 0 && combat_data.contains_key(&self.last_valid_boss_target) {
+                    // 暂时没有找到新的 Boss 目标，但上一个有效目标还在数据中，继续使用
+                    let name = self.resolve_target_name(self.last_valid_boss_target);
+                    (HashSet::from([self.last_valid_boss_target]), name, self.last_valid_boss_target)
                 } else {
-                    // Fall back to most damage
-                    let best = combat_data.iter()
-                        .max_by_key(|(_, td)| td.total_damage);
-                    match best {
-                        Some((&id, _)) => {
-                            let name = self.resolve_target_name(id);
-                            (HashSet::from([id]), name, id)
-                        }
-                        None => (HashSet::new(), String::new(), 0),
-                    }
+                    // 完全没有目标，返回空（而不是回退到其他目标）
+                    (HashSet::new(), String::new(), 0)
                 }
             }
             TargetSelectionMode::AllTargets => {
