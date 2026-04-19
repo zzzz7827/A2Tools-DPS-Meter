@@ -240,12 +240,19 @@ class DpsApp {
       onClickUserRow: (row) => {
         if (!row || this.isWindowDragging) return;
         const rowId = Number(row?.id);
-        this.pinnedDetailsRowId = Number.isFinite(rowId) && rowId > 0 ? rowId : null;
-        this.hideHoverTooltip();
-        this.detailsUI.open(row, {
-          pin: true,
-          ...this.getDefaultDetailsOpenOptions(),
-        });
+        if (this.pinnedDetailsRowId === rowId) {
+          // 如果当前行已经打开详情，则关闭
+          this.pinnedDetailsRowId = null;
+          this.detailsUI.close({ keepPinned: false });
+        } else {
+          // 否则打开详情
+          this.pinnedDetailsRowId = Number.isFinite(rowId) && rowId > 0 ? rowId : null;
+          this.hideHoverTooltip();
+          this.detailsUI.open(row, {
+            pin: true,
+            ...this.getDefaultDetailsOpenOptions(),
+          });
+        }
       },
     });
 
@@ -1639,9 +1646,6 @@ class DpsApp {
       const nextMode = this.displayMode === "totalDamage" ? "dps" : "totalDamage";
       this.setDisplayMode(nextMode, { persist: true });
       this.renderCurrentRows();
-    });
-    this.logoBtn?.addEventListener("click", () => {
-      this.captureMainMeterScreenshot();
     });
     this.logoBtn?.setAttribute("data-no-drag", "true");
 

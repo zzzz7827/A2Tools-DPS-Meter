@@ -63,7 +63,7 @@
   --indicator-idle: #7f8a9a;
   --font: 16px;
   --details-bg-opacity: 0.8;
-  --cjk-font-stack: "Microsoft YaHei UI", "Microsoft JhengHei UI", "PingFang SC", "PingFang TC", "Noto Sans SC", "Noto Sans TC", "Heiti SC", "SimHei", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  --cjk-font-stack: "Noto Sans SC", "Microsoft YaHei UI", "Microsoft JhengHei UI", "PingFang SC", "PingFang TC", "Noto Sans TC", "Heiti SC", "SimHei", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
 
   /* dmgFill bar background — alpha baked in to avoid compositing layers */
   --dmg-fill-bg: rgba(106, 166, 255, 0.8);
@@ -359,6 +359,7 @@ html:lang(ko), html:lang(ko) body {
 html:lang(zh-CN), html:lang(zh-CN) body,
 html:lang(zh-Hans), html:lang(zh-Hans) body {
   font-family:
+          "Noto Sans SC",
           "Microsoft YaHei UI",
           "Microsoft YaHei",
           "PingFang SC",
@@ -373,6 +374,7 @@ html:lang(zh-Hans), html:lang(zh-Hans) body {
 html:lang(zh-TW), html:lang(zh-TW) body,
 html:lang(zh-Hant), html:lang(zh-Hant) body {
   font-family:
+          "Noto Sans SC",
           "PingFang TC",
           "Microsoft JhengHei UI",
           "Microsoft YaHei UI",
