@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicI64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use parking_lot::RwLock;
 
@@ -10,6 +11,8 @@ use crate::entity::summon_resolver;
 
 /// Maximum idle gap before a fight is considered ended and a new one begins.
 const IDLE_RESET_MS: i64 = 30_000;
+/// Minimum cooldown between boss auto-resets to prevent frequent data loss
+const BOSS_RESET_COOLDOWN_MS: i64 = 5_000;
 
 // ───── Aggregate data structures ─────
 
@@ -141,6 +144,8 @@ struct Inner {
     boss_entity_ids: HashSet<i32>,
     /// Whether the current combat segment has any boss damage
     has_boss_in_segment: bool,
+    /// Timestamp of last boss auto-reset (for cooldown)
+    last_boss_reset_time: i64,
     current_target: i32,
 
     // Local player
@@ -166,6 +171,7 @@ impl DataStorage {
                 dead_entity_ids: HashSet::new(),
                 boss_entity_ids: HashSet::new(),
                 has_boss_in_segment: false,
+                last_boss_reset_time: 0,
                 current_target: 0,
                 local_player_id: None,
                 local_character_name: None,
@@ -256,19 +262,50 @@ impl DataStorage {
             inner.actor_jobs.entry(actor_id).or_insert(job);
         }
 
+        let timestamp = pdp.timestamp();
+        
         // Boss encounter auto-reset: if this target is a boss and the current
         // segment has no boss yet, clear the trash segment so boss gets clean data.
         let is_boss_target = inner.boss_entity_ids.contains(&target_id);
-        if is_boss_target && !inner.has_boss_in_segment && !inner.target_combat.is_empty() {
-            tracing::info!("Boss encounter auto-reset: boss entity {} hit, clearing trash segment", target_id);
-            inner.target_combat.clear();
-            inner.dead_entity_ids.clear();
-            inner.has_boss_in_segment = true;
-        } else if is_boss_target {
+        if is_boss_target {
+            if !inner.has_boss_in_segment && !inner.target_combat.is_empty() {
+                // Check for non-boss targets and cooldown before reset
+                let has_non_boss = inner.target_combat.keys()
+                    .any(|&tid| !inner.boss_entity_ids.contains(&tid));
+                
+                // Special check: if this boss target already exists in target_combat,
+                // don't reset - it means we're already attacking this boss, just registered late
+                let has_this_boss = inner.target_combat.contains_key(&target_id);
+                
+                let now_ms = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .map(|d| d.as_millis() as i64)
+                    .unwrap_or_else(|_| {
+                        tracing::warn!("Failed to get system time, using default timestamp");
+                        0
+                    });
+                
+                let in_cooldown = now_ms - inner.last_boss_reset_time < BOSS_RESET_COOLDOWN_MS;
+                
+                if has_non_boss && !in_cooldown && !has_this_boss {
+                    // Only reset if there are truly non-boss targets, not in cooldown,
+                    // AND this boss target doesn't already exist in our data
+                    tracing::info!("Boss encounter auto-reset: boss entity {} hit, clearing trash segment (has_non_boss={}, in_cooldown={}, has_this_boss={})",
+                        target_id, has_non_boss, in_cooldown, has_this_boss);
+                    inner.target_combat.clear();
+                    inner.dead_entity_ids.clear();
+                    inner.last_boss_reset_time = now_ms;
+                } else if in_cooldown {
+                    tracing::debug!("Boss auto-reset skipped due to cooldown (last_reset={}ms ago)",
+                        now_ms - inner.last_boss_reset_time);
+                } else if has_this_boss {
+                    tracing::debug!("Boss auto-reset skipped because this boss target {} already exists in combat data",
+                        target_id);
+                }
+            }
             inner.has_boss_in_segment = true;
         }
 
-        let timestamp = pdp.timestamp();
         let packet_id = pdp.id();
 
         // Get or create target combat data
@@ -531,6 +568,7 @@ impl DataStorage {
         inner.hostile_target_ids.clear();
         inner.dead_entity_ids.clear();
         inner.has_boss_in_segment = false;
+        inner.last_boss_reset_time = 0;
         inner.mob_hp_data.clear();
         inner.current_target = 0;
     }
